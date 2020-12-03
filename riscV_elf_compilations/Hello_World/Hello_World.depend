@@ -1,0 +1,4 @@
+# depslib dependency file v1.0
+1605558008 source:/home/max/Desktop/BSUIR/5_sem/ABC/coursework/riscV_elf_compilations/Hello_World/main.cpp
+	<iostream>
+

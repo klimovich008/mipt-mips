@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "*.template": "html",
+        "iostream": "cpp",
+        "ctime": "cpp",
+        "chrono": "cpp",
+        "condition_variable": "cpp",
+        "shared_mutex": "cpp"
+    }
+}

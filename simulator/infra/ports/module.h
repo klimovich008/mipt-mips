@@ -11,16 +11,68 @@
 #include <infra/ports/ports.h>
 
 #include <boost/property_tree/ptree_fwd.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/optional/optional.hpp>
+#include <map>
 
 #include <set>
 #include <unordered_set>
+
+#include <modules/core/perf_instr.h>
 
 class Module : public Log
 {
 public:
     Module( Module* parent, std::string name);
 
+    void static save_track_to_file(std::string filename)
+    {
+        if(!filename.length()) return; 
+
+        boost::property_tree::ptree array;
+        for (auto record : json_track_data)
+        {
+            array.push_back(std::make_pair("", record.second));
+        }
+        boost::property_tree::ptree data;
+        data.add_child("data", array);
+        boost::property_tree::write_json(filename + ".json", data);
+    }
+
 protected:
+    template <typename FuncInstr>
+    void init_record(const PerfInstr<FuncInstr> &instr)
+    {
+        boost::property_tree::ptree new_record;
+
+        new_record.put("type", "Record");
+        new_record.put("id", instr.get_sequence_id());
+        new_record.add("disassembly", instr.get_disasm());
+
+        json_track_data.insert(std::make_pair(instr.get_sequence_id(), new_record));
+    }
+
+    template <typename FuncInstr>
+    void add_stage_to_record(const PerfInstr<FuncInstr> &instr, std::string description, Cycle cycle)
+    {
+        boost::property_tree::ptree &record = json_track_data[instr.get_sequence_id()];
+        boost::property_tree::ptree data;
+        data.put("cycle", cycle);
+        data.put("description", description);
+
+        boost::property_tree::ptree data_array;
+
+        data_array.push_back(boost::property_tree::ptree::value_type("", data));
+
+        boost::optional<boost::property_tree::ptree &> array =
+            record.get_child_optional("stages");
+        if (array)
+            array->push_back(boost::property_tree::ptree::value_type("", data));
+        else
+            record.put_child("stages", data_array);
+    }
+
     template<typename T>
     auto make_write_port( std::string key, uint32 bandwidth) 
     {
@@ -62,6 +114,7 @@ private:
     const std::string name;
     std::vector<std::unique_ptr<BasicWritePort>> write_ports;
     std::vector<std::unique_ptr<BasicReadPort>> read_ports;
+    static std::map<int, boost::property_tree::ptree> json_track_data;
 };
 
 class Root : public Module

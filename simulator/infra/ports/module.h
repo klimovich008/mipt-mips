@@ -19,21 +19,22 @@
 #include <set>
 #include <unordered_set>
 #include <modules/core/perf_instr.h>
+#include <fstream>
 
 class Module : public Log
 {
 public:
     Module( Module* parent, std::string name);
 
-    void static init_track_data(uint64 first_cycle, uint64 last_cycle);
-    void static save_track_to_file(std::string filename);
+    void static init_track_data(uint64 first_cycle, uint64 last_cycle, std::string filename);
+    void static save_track_to_file();
 
 protected:
 
     template <typename FuncInstr>
     void static init_record(const PerfInstr<FuncInstr> &instr, const Cycle &cycle)
     {
-        if (!json_track_data.length())
+        if (!json_track_data.is_open())
             return;
 
         switch ((track_first_cycle ? 1 : 0) + (track_last_cycle ? 2 : 0))
@@ -61,18 +62,18 @@ protected:
             break;
         }
 
-        json_track_data += "\t{ \"type\": \"Record\", \"id\": " + std::to_string(record_id - 1) + ", \"disassembly\": \"" + instr.get_disasm() + "\" },\n";
+        json_track_data << "\t{ \"type\": \"Record\", \"id\": " + std::to_string(record_id - 1) + ", \"disassembly\": \"" + instr.get_disasm() + "\" },\n";
     }
 
     template <typename FuncInstr>
     void event(const PerfInstr<FuncInstr> &instr, const Cycle &cycle, int stage_id)
     {
-        if (!json_track_data.length())
+        if (!json_track_data.is_open())
             return;
         if (!tracked_instr.contains(instr.get_sequence_id()))
             return;
 
-        json_track_data += "\t{ \"type\": \"Event\", \"id\": " + std::to_string(tracked_instr.find(instr.get_sequence_id())->second) + ", \"cycle\": " + cycle.to_string() + ", \"stage\": " + std::to_string(stage_id) + " },\n";
+        json_track_data << "\t{ \"type\": \"Event\", \"id\": " + std::to_string(tracked_instr.find(instr.get_sequence_id())->second) + ", \"cycle\": " + cycle.to_string() + ", \"stage\": " + std::to_string(stage_id) + " },\n";
 
         if(stage_id == 4) tracked_instr.erase(instr.get_sequence_id());
     }
@@ -120,7 +121,7 @@ private:
     std::vector<std::unique_ptr<BasicReadPort>> read_ports;
     static uint64 track_first_cycle;
     static uint64 track_last_cycle;
-    static std::string json_track_data;
+    static std::ofstream json_track_data;
     static int record_id;
     static std::map<int, int> tracked_instr;
 };

@@ -18,7 +18,6 @@
 
 #include <set>
 #include <unordered_set>
-
 #include <modules/core/perf_instr.h>
 
 class Module : public Log
@@ -26,51 +25,56 @@ class Module : public Log
 public:
     Module( Module* parent, std::string name);
 
-    void static save_track_to_file(std::string filename)
-    {
-        if(!filename.length()) return; 
-
-        boost::property_tree::ptree array;
-        for (auto record : json_track_data)
-        {
-            array.push_back(std::make_pair("", record.second));
-        }
-        boost::property_tree::ptree data;
-        data.add_child("data", array);
-        boost::property_tree::write_json(filename + ".json", data);
-    }
+    void static init_track_data(uint64 first_cycle, uint64 last_cycle);
+    void static save_track_to_file(std::string filename);
 
 protected:
+
     template <typename FuncInstr>
-    void init_record(const PerfInstr<FuncInstr> &instr)
+    void static init_record(const PerfInstr<FuncInstr> &instr, const Cycle &cycle)
     {
-        boost::property_tree::ptree new_record;
+        if (!json_track_data.length())
+            return;
 
-        new_record.put("type", "Record");
-        new_record.put("id", instr.get_sequence_id());
-        new_record.add("disassembly", instr.get_disasm());
+        switch ((track_first_cycle ? 1 : 0) + (track_last_cycle ? 2 : 0))
+        {
+        case 0:
+            tracked_instr.insert(std::make_pair(instr.get_sequence_id(), record_id++));
+            break;
+        case 1:
+            if (double(cycle) >= track_first_cycle)
+                tracked_instr.insert(std::make_pair(instr.get_sequence_id(), record_id++));
+            else
+                return;
+            break;
+        case 2:
+            if (double(cycle) <= track_last_cycle)
+                tracked_instr.insert(std::make_pair(instr.get_sequence_id(), record_id++));
+            else
+                return;
+            break;
+        case 3:
+            if (double(cycle) <= track_last_cycle && double(cycle) >= track_first_cycle)
+                tracked_instr.insert(std::make_pair(instr.get_sequence_id(), record_id++));
+            else
+                return;
+            break;
+        }
 
-        json_track_data.insert(std::make_pair(instr.get_sequence_id(), new_record));
+        json_track_data += "\t{ \"type\": \"Record\", \"id\": " + std::to_string(record_id - 1) + ", \"disassembly\": \"" + instr.get_disasm() + "\" },\n";
     }
 
     template <typename FuncInstr>
-    void add_stage_to_record(const PerfInstr<FuncInstr> &instr, std::string description, Cycle cycle)
+    void event(const PerfInstr<FuncInstr> &instr, const Cycle &cycle, int stage_id)
     {
-        boost::property_tree::ptree &record = json_track_data[instr.get_sequence_id()];
-        boost::property_tree::ptree data;
-        data.put("cycle", cycle);
-        data.put("description", description);
+        if (!json_track_data.length())
+            return;
+        if (!tracked_instr.contains(instr.get_sequence_id()))
+            return;
 
-        boost::property_tree::ptree data_array;
+        json_track_data += "\t{ \"type\": \"Event\", \"id\": " + std::to_string(tracked_instr.find(instr.get_sequence_id())->second) + ", \"cycle\": " + cycle.to_string() + ", \"stage\": " + std::to_string(stage_id) + " },\n";
 
-        data_array.push_back(boost::property_tree::ptree::value_type("", data));
-
-        boost::optional<boost::property_tree::ptree &> array =
-            record.get_child_optional("stages");
-        if (array)
-            array->push_back(boost::property_tree::ptree::value_type("", data));
-        else
-            record.put_child("stages", data_array);
+        if(stage_id == 4) tracked_instr.erase(instr.get_sequence_id());
     }
 
     template<typename T>
@@ -114,7 +118,11 @@ private:
     const std::string name;
     std::vector<std::unique_ptr<BasicWritePort>> write_ports;
     std::vector<std::unique_ptr<BasicReadPort>> read_ports;
-    static std::map<int, boost::property_tree::ptree> json_track_data;
+    static uint64 track_first_cycle;
+    static uint64 track_last_cycle;
+    static std::string json_track_data;
+    static int record_id;
+    static std::map<int, int> tracked_instr;
 };
 
 class Root : public Module

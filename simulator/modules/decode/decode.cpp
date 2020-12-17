@@ -98,7 +98,7 @@ void Decode<FuncInstr>::clock( Cycle cycle)
 
     auto[instr, from_stall] = read_instr( cycle);
 
-    add_stage_to_record(instr, "Decode", cycle);
+    event(instr, cycle, 1);
     
     if ( instr.is_jump())
         num_jumps++;

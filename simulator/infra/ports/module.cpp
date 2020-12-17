@@ -126,4 +126,41 @@ void Root::topology_dumping( bool dump, const std::string& filename)
     sout << std::endl << "Module topology dumped into " + filename << std::endl;
 }
 
-std::map<int, boost::property_tree::ptree> Module::json_track_data;
+void Module::init_track_data(uint64 first_cycle, uint64 last_cycle, std::string filename)
+{
+    if(!filename.length()) return;
+    json_track_data.open(filename + ".json", std::ios_base::trunc);
+    track_first_cycle = first_cycle;
+    track_last_cycle = last_cycle;
+
+    json_track_data << "[\n";
+    std::string init_data[5] = {
+        "Fetch",
+        "Decode",
+        "Execute",
+        "Memory",
+        "Writeback",
+    };
+
+    for (int i = 0; i < static_cast<int>(std::size(init_data)); i++)
+    {
+        json_track_data << "\t{ \"type\": \"Stage\", \"id\": " + std::to_string(i) + ", \"description\": \"" + init_data[i] + "\" },\n";
+    }
+}
+
+void Module::save_track_to_file()
+{
+    if (!json_track_data.is_open())
+        return;
+
+    json_track_data.seekp(-2, std::ios_base::end);
+
+    json_track_data << "\n]\n";
+    json_track_data.close();
+}
+
+uint64 Module::track_first_cycle;
+uint64 Module::track_last_cycle;
+std::ofstream Module::json_track_data;
+int Module::record_id = 0;
+std::map<int, int> Module::tracked_instr;

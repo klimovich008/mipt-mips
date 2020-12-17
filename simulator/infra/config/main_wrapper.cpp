@@ -15,10 +15,6 @@ static const constexpr int EXCEPTION_EXIT_CODE = 2;
 static const constexpr int NO_EXCEPTION_EXIT_CODE = 3;
 static const constexpr int INVALID_OPTION_EXIT_CODE = 4;
 
-namespace config {
-    static const AliasedValue<std::string> track_file = { "o", "output", "", "Save Track data to json file "};
-}
-
 MainWrapper::MainWrapper( std::string_view desc)
     : MainWrapper( desc, std::cout, std::cerr)
 { }
@@ -38,17 +34,17 @@ catch ( const config::InvalidOption& e) {
     return INVALID_OPTION_EXIT_CODE;
 }
 catch ( const Exception& e) {
-    Module::save_track_to_file(config::track_file);
+    Module::save_track_to_file();
     err << e.what() << std::endl;
     return EXCEPTION_EXIT_CODE;
 }
 catch ( const std::exception& e) {
-    Module::save_track_to_file(config::track_file);
+    Module::save_track_to_file();
     err << "System exception:\t\n" << e.what() << std::endl;
     return EXCEPTION_EXIT_CODE;
 }
 catch (...) {
-    Module::save_track_to_file(config::track_file);
+    Module::save_track_to_file();
     err << "Unknown exception\n";
     return NO_EXCEPTION_EXIT_CODE;
 }

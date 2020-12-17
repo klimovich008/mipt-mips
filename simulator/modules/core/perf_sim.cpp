@@ -12,7 +12,10 @@
 
 namespace config {
     static const AliasedValue<std::string> units_to_log = { "l", "logs", "nothing", "print logs for modules"};
+    static const Value<uint64> track_first_cycle = { "fcycle", 0, "Cycle to start track"};
+    static const Value<uint64> track_last_cycle = { "lcycle", 0, "Cycle to stop track"};
     static const Switch topology_dump = { "tdump", "module topology dump into topology.json" };
+    static const AliasedValue<std::string> track_file = { "o", "output", "", "Save Track data to json file "};
 } // namespace config
 
 template <typename ISA>
@@ -31,6 +34,7 @@ PerfSim<ISA>::PerfSim( std::endian endian, std::string_view isa)
 
     init_portmap();
     enable_logging( config::units_to_log);
+    Module::init_track_data(config::track_first_cycle, config::track_last_cycle, config::track_file);
     topology_dumping( config::topology_dump, "topology.json");
 }
 
